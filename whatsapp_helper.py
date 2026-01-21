@@ -1,21 +1,21 @@
 """
 WhatsApp Helper
 ===============
-Evolution API kullanarak WhatsApp mesajlaşma.
+WhatsApp messaging using Evolution API.
 """
 
 import os
 import base64
 from typing import Optional, List, Dict
 
-# Evolution API import - farklı versiyonlar için try/except
+# Evolution API import - try/except for different versions
 try:
     from evolutionapi.client import EvolutionClient
     from evolutionapi.models.message import TextMessage, MediaMessage, MediaType
     EVOLUTION_AVAILABLE = True
 except ImportError:
     EVOLUTION_AVAILABLE = False
-    print("⚠️ evolutionapi paketi bulunamadı")
+    print("Warning: evolutionapi package not found")
 
 
 class WhatsApp:
@@ -33,47 +33,47 @@ class WhatsApp:
                     base_url=self.base_url,
                     api_token=self.api_key
                 )
-                print("✅ Evolution client başlatıldı")
+                print("Evolution client initialized")
             except Exception as e:
-                print(f"⚠️ Evolution client hatası: {e}")
+                print(f"Warning: Evolution client error: {e}")
         
-        # İzin verilen numaralar (boşsa herkese izin ver)
+        # Allowed numbers (empty allows everyone)
         allowed = os.getenv("ALLOWED_NUMBERS", "")
         self.allowed_numbers: List[str] = [n.strip() for n in allowed.split(",") if n.strip()]
     
     def is_allowed(self, phone: str) -> bool:
-        """Numaraya izin var mı?"""
+        """Is this number allowed?"""
         if not self.allowed_numbers:
             return True
         clean_phone = phone.replace("+", "").replace(" ", "").replace("@s.whatsapp.net", "")
         return clean_phone in self.allowed_numbers
     
     def _clean_phone(self, phone: str) -> str:
-        """Telefon numarasını temizle"""
+        """Clean phone number"""
         return phone.replace("+", "").replace(" ", "").replace("@s.whatsapp.net", "")
     
     def _get_media_type(self, media_type: str) -> str:
-        """MediaType enum değerini al - farklı API versiyonları için"""
+        """Get MediaType enum value - for different API versions"""
         if EVOLUTION_AVAILABLE:
             try:
-                # Önce enum'dan dene
+                # Try from enum first
                 if hasattr(MediaType, media_type.upper()):
                     mt = getattr(MediaType, media_type.upper())
                     return mt.value if hasattr(mt, 'value') else str(mt)
-                # Küçük harfle dene
+                # Try lowercase
                 if hasattr(MediaType, media_type.lower()):
                     mt = getattr(MediaType, media_type.lower())
                     return mt.value if hasattr(mt, 'value') else str(mt)
             except Exception as e:
-                print(f"⚠️ MediaType hatası: {e}")
+                print(f"Warning: MediaType error: {e}")
         
-        # Fallback: string olarak dön
+        # Fallback: return as string
         return media_type.lower()
     
     def send_message(self, phone: str, text: str) -> dict:
-        """Metin mesajı gönder"""
+        """Send text message"""
         if not self.client:
-            print(f"📱 [MOCK] Mesaj -> {phone}: {text[:50]}...")
+            print(f"[MOCK] Message -> {phone}: {text[:50]}...")
             return {"status": "mock"}
         
         try:
@@ -87,13 +87,13 @@ class WhatsApp:
                 self.api_key
             )
         except Exception as e:
-            print(f"❌ Mesaj gönderme hatası: {e}")
+            print(f"Message send error: {e}")
             raise
     
     def send_audio(self, phone: str, audio_path: str) -> dict:
-        """Ses dosyası gönder"""
+        """Send audio file"""
         if not self.client:
-            print(f"📱 [MOCK] Audio -> {phone}: {audio_path}")
+            print(f"[MOCK] Audio -> {phone}: {audio_path}")
             return {"status": "mock"}
         
         try:
@@ -113,13 +113,13 @@ class WhatsApp:
                 self.api_key
             )
         except Exception as e:
-            print(f"❌ Audio gönderme hatası: {e}")
+            print(f"Audio send error: {e}")
             raise
     
     def send_image(self, phone: str, image_path: str, caption: str = None) -> dict:
-        """Görsel gönder"""
+        """Send image"""
         if not self.client:
-            print(f"📱 [MOCK] Image -> {phone}: {image_path}")
+            print(f"[MOCK] Image -> {phone}: {image_path}")
             return {"status": "mock"}
         
         try:
@@ -150,13 +150,13 @@ class WhatsApp:
                 self.api_key
             )
         except Exception as e:
-            print(f"❌ Image gönderme hatası: {e}")
+            print(f"Image send error: {e}")
             raise
     
     def send_video(self, phone: str, video_path: str, caption: str = None) -> dict:
-        """Video gönder"""
+        """Send video"""
         if not self.client:
-            print(f"📱 [MOCK] Video -> {phone}: {video_path}")
+            print(f"[MOCK] Video -> {phone}: {video_path}")
             return {"status": "mock"}
         
         try:
@@ -177,13 +177,13 @@ class WhatsApp:
                 self.api_key
             )
         except Exception as e:
-            print(f"❌ Video gönderme hatası: {e}")
+            print(f"Video send error: {e}")
             raise
     
     def send_document(self, phone: str, doc_path: str, filename: str = None) -> dict:
-        """Döküman gönder"""
+        """Send document"""
         if not self.client:
-            print(f"📱 [MOCK] Document -> {phone}: {doc_path}")
+            print(f"[MOCK] Document -> {phone}: {doc_path}")
             return {"status": "mock"}
         
         try:
@@ -203,35 +203,35 @@ class WhatsApp:
                 self.api_key
             )
         except Exception as e:
-            print(f"❌ Document gönderme hatası: {e}")
+            print(f"Document send error: {e}")
             raise
     
     def parse_webhook(self, webhook_data: dict) -> Optional[Dict]:
-        """Webhook verisini parse et"""
+        """Parse webhook data"""
         try:
-            # Event kontrolü
+            # Event check
             if webhook_data.get('event') != 'messages.upsert':
                 return None
             
             data = webhook_data.get('data', {})
             key = data.get('key', {})
             
-            # Kendi mesajlarımızı ignore et
+            # Ignore our own messages
             if key.get('fromMe', False):
                 return None
             
-            # Phone numarasını al
+            # Get phone number
             phone = key.get('remoteJid', '').replace('@s.whatsapp.net', '')
             
             if not phone:
                 return None
             
-            # İzin kontrolü
+            # Permission check
             if not self.is_allowed(phone):
-                print(f"⚠️ {phone} numarasına izin yok")
+                print(f"Warning: {phone} not allowed")
                 return None
             
-            # Message ID al (duplicate kontrolü için)
+            # Get message ID (for duplicate check)
             message_id = key.get('id', '')
             
             message = data.get('message', {})
@@ -241,10 +241,10 @@ class WhatsApp:
                 'text': None,
                 'type': 'unknown',
                 'media_url': None,
-                'message_id': message_id  # Duplicate kontrolü için
+                'message_id': message_id
             }
             
-            # Mesaj tipini belirle
+            # Determine message type
             if 'conversation' in message:
                 result['type'] = 'text'
                 result['text'] = message['conversation']
@@ -273,13 +273,13 @@ class WhatsApp:
                 result['media_url'] = message['documentMessage'].get('url')
                 
             else:
-                print(f"⚠️ Desteklenmeyen mesaj tipi: {list(message.keys())}")
+                print(f"Warning: Unsupported message type: {list(message.keys())}")
                 return None
             
             return result
             
         except Exception as e:
-            print(f"❌ Webhook parse hatası: {e}")
+            print(f"Webhook parse error: {e}")
             import traceback
             traceback.print_exc()
             return None

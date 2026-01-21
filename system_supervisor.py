@@ -1,17 +1,17 @@
 """
 System Supervisor Agent
 =======================
-Tüm sistemin beyni. Kullanıcı iletişimini, görev planlamasını ve 
-tüm alt agent'ları koordine eder.
+The brain of the entire system. Handles user communication, task planning,
+and coordinates all sub-agents.
 
-Akış:
-1. communication_agent: Kullanıcı mesajını anlar
-2. task_planner: Görevleri planlar
-3. music_generator: Müzik üretir
-4. music_selection_handler: Müzik seçimi
-5. cover_generator: Kapak üretir
-6. video_generator: Video üretir
-7. delivery_agent: Sonuçları teslim eder
+Flow:
+1. communication_agent: Understands user message
+2. task_planner: Plans tasks
+3. music_generator: Generates music
+4. music_selection_handler: Music selection
+5. cover_generator: Generates cover
+6. video_generator: Generates video
+7. delivery_agent: Delivers results
 """
 
 import os
@@ -43,15 +43,14 @@ load_dotenv()
 
 def messages_to_string(messages: list, last_n: int = 10) -> str:
     """
-    Mesaj listesini string'e çevirir.
-    HumanMessage, AIMessage veya string olabilir.
+    Converts message list to string.
+    Can be HumanMessage, AIMessage or string.
     """
     result = []
     for msg in messages[-last_n:]:
         if isinstance(msg, str):
             result.append(msg)
         elif hasattr(msg, 'content'):
-            # HumanMessage, AIMessage, SystemMessage vs.
             role = msg.__class__.__name__.replace("Message", "")
             result.append(f"{role}: {msg.content}")
         else:
@@ -61,8 +60,8 @@ def messages_to_string(messages: list, last_n: int = 10) -> str:
 
 class SystemSupervisor:
     """
-    Tüm sistemi yöneten ana supervisor.
-    Tek bir workflow içinde tüm agent'ları koordine eder.
+    Main supervisor that manages the entire system.
+    Coordinates all agents within a single workflow.
     """
 
     def __init__(self):
@@ -80,60 +79,60 @@ class SystemSupervisor:
 
     def communication_agent(self, state: UnifiedState):
         """
-        Ana iletişim agent'ı - kullanıcı mesajını analiz eder ve aksiyon belirler.
+        Main communication agent - analyzes user message and determines action.
         """
         
-        system_message = """Sen bir müzik üretim şirketinin akıllı asistanısın. 
-Kullanıcıyla WhatsApp üzerinden iletişim kuruyorsun.
+        system_message = """You are the intelligent assistant of a music production company.
+You communicate with users via WhatsApp.
 
-# GÖREVLER:
-1. Kullanıcının ne istediğini anla
-2. Uygun aksiyonu seç
-3. Doğal ve samimi iletişim kur
+# TASKS:
+1. Understand what the user wants
+2. Select appropriate action
+3. Maintain natural and friendly communication
 
-# AKSİYONLAR:
-- **task_planner**: Yeni bir üretim görevi var (müzik/kapak/video üret)
-- **send_message**: Bilgilendirme mesajı gönder, sonra cevap bekle
-- **send_music**: Hazır müziği gönder
-- **send_cover**: Hazır kapak görselini gönder  
-- **send_video**: Hazır videoyu gönder
-- **choice_persona**: Persona listesini göster
-- **wait_user**: Kullanıcıdan yanıt bekle
-- **finish**: Konuşmayı sonlandır
+# ACTIONS:
+- **task_planner**: There's a new production task (generate music/cover/video)
+- **send_message**: Send info message, then wait for response
+- **send_music**: Send ready music
+- **send_cover**: Send ready cover image
+- **send_video**: Send ready video
+- **choice_persona**: Show persona list
+- **wait_user**: Wait for user response
+- **finish**: End conversation
 
-# MEVCUT DURUM:
+# CURRENT STATUS:
 - Stage: {current_stage}
-- Müzik üretildi mi: {is_music_generated}
-- Müzik seçildi mi: {is_music_selected}
-- Kapak üretildi mi: {is_cover_generated}
-- Video üretildi mi: {is_video_generated}
-- Görev kuyruğu: {task_queue}
-- Tamamlanan görevler: {completed_tasks}
+- Music generated: {is_music_generated}
+- Music selected: {is_music_selected}
+- Cover generated: {is_cover_generated}
+- Video generated: {is_video_generated}
+- Task queue: {task_queue}
+- Completed tasks: {completed_tasks}
 
-# KARAR MANTIĞI:
-1. Kullanıcı yeni bir şey istiyorsa → task_planner
-2. Müzik hazır ama gönderilmemişse → send_music
-3. Kapak hazır ama gönderilmemişse → send_cover
-4. Video hazır ama gönderilmemişse → send_video
-5. Soru sorduysan → wait_user
-6. Her şey tamam ve kullanıcı memnun → finish
+# DECISION LOGIC:
+1. User wants something new → task_planner
+2. Music ready but not sent → send_music
+3. Cover ready but not sent → send_cover
+4. Video ready but not sent → send_video
+5. Asked a question → wait_user
+6. Everything done and user satisfied → finish
 
-# ÖNEMLİ:
-- Mesaj gönderdikten sonra wait_user'a git
-- Kullanıcıdan bilgi lazımsa önce sor
-- Samimi ve yardımsever ol
-- HATA DURUMU varsa ve deneme sayısı 2'ye ulaştıysa task_planner'a GİTME, kullanıcıya özür dile ve wait_user'a git
-- Aynı görev için sürekli task_planner'a gitme (hata döngüsü oluşur)
+# IMPORTANT:
+- After sending message go to wait_user
+- If you need info from user, ask first
+- Be friendly and helpful
+- If ERROR and retry count reached 2, DON'T go to task_planner, apologize to user and go to wait_user
+- Don't keep going to task_planner for the same task (creates error loop)
 """
         
         human_message = """
-# Son Mesajlar:
+# Recent Messages:
 {messages}
 
-# Hata Durumu:
+# Error Status:
 {error_info}
 
-Durumu analiz et ve aksiyon belirle.
+Analyze the situation and determine action.
 """
 
         template = ChatPromptTemplate.from_messages([
@@ -143,11 +142,10 @@ Durumu analiz et ve aksiyon belirle.
 
         chain = template | self.llm.with_structured_output(CommunicationDecisionBaseModel)
 
-        # Hata bilgisi
-        error_info = "Yok"
+        error_info = "None"
         if state.get("error_message"):
             retry = state.get("retry_count", 0)
-            error_info = f"Hata: {state['error_message']} (Deneme: {retry}/2)"
+            error_info = f"Error: {state['error_message']} (Attempt: {retry}/2)"
 
         result = chain.invoke({
             "messages": messages_to_string(state.get("messages", [])),
@@ -162,7 +160,7 @@ Durumu analiz et ve aksiyon belirle.
         })
 
         print(f"\n{'='*50}")
-        print(f"🤖 COMMUNICATION AGENT")
+        print(f"COMMUNICATION AGENT")
         print(f"   Action: {result.action}")
         print(f"   Description: {result.description[:100]}...")
         print(f"{'='*50}\n")
@@ -176,14 +174,14 @@ Durumu analiz et ve aksiyon belirle.
         )
 
     def send_message(self, state: UnifiedState):
-        """Kullanıcıya mesaj gönderir"""
+        """Sends message to user"""
         
         message = state.get("communication_description", "")
         phone = state["phone_number"]
         
         try:
             self.message_helper.send_message(phone, message)
-            print(f"✅ Mesaj gönderildi: {phone}")
+            print(f"Message sent: {phone}")
             
             return Command(
                 update={
@@ -192,23 +190,23 @@ Durumu analiz et ve aksiyon belirle.
                 goto="wait_user"
             )
         except Exception as e:
-            print(f"❌ Mesaj hatası: {e}")
+            print(f"Message error: {e}")
             return Command(
                 update={
-                    "messages": [f"System: Mesaj gönderilemedi - {e}"],
+                    "messages": [f"System: Message could not be sent - {e}"],
                     "error_message": str(e)
                 },
                 goto="communication_agent"
             )
 
     def wait_user(self, state: UnifiedState):
-        """Human-in-the-loop: Kullanıcı yanıtı bekler"""
+        """Human-in-the-loop: Waits for user response"""
         
-        print("\n⏳ Kullanıcı yanıtı bekleniyor...")
+        print("\nWaiting for user response...")
         
         user_response = interrupt("Waiting for user response...")
         
-        print(f"✅ Kullanıcı yanıtı: {user_response}")
+        print(f"User response received: {user_response}")
         
         return Command(
             update={
@@ -219,13 +217,13 @@ Durumu analiz et ve aksiyon belirle.
         )
 
     def choice_persona(self, state: UnifiedState):
-        """Persona seçimi"""
+        """Persona selection"""
         
         phone = state["phone_number"]
         personas = self.persona_db.list_personas()
         
         if not personas:
-            message = "❌ Henüz kayıtlı persona yok. Önce bir müzik üretip beğendiğin tarzı kaydetmelisin!"
+            message = "No personas saved yet. First, generate music and save a style you like!"
             self.message_helper.send_message(phone, message)
             
             return Command(
@@ -233,12 +231,12 @@ Durumu analiz et ve aksiyon belirle.
                 goto="wait_user"
             )
         
-        # Persona listesini formatla
-        message = "🎭 Kayıtlı Personalar:\n\n"
+        # Format persona list
+        message = "Saved Personas:\n\n"
         for idx, persona in enumerate(personas, 1):
             message += f"{idx}. {persona['name']}\n"
-            message += f"   📝 {persona.get('description', 'Açıklama yok')}\n\n"
-        message += "\nHangi personayı kullanmak istersin? (Numara gönder)"
+            message += f"   {persona.get('description', 'No description')}\n\n"
+        message += "\nWhich persona would you like to use? (Send number)"
         
         self.message_helper.send_message(phone, message)
         
@@ -256,41 +254,40 @@ Durumu analiz et ve aksiyon belirle.
 
     def task_planner(self, state: UnifiedState):
         """
-        Görev planlayıcı - kullanıcının isteğini analiz eder ve 
-        yapılacak görevleri belirler.
+        Task planner - analyzes user request and determines tasks to perform.
         """
         
-        system_message = """Sen bir müzik prodüksiyon planlayıcısısın.
-Kullanıcının isteğini analiz edip hangi görevlerin yapılacağını belirle.
+        system_message = """You are a music production planner.
+Analyze user request and determine which tasks to perform.
 
-# GÖREVLER:
-- **music**: Yeni müzik üret
-- **cover**: Albüm/şarkı kapağı üret
-- **video**: Müzik videosu oluştur (müzik + kapak birleşimi)
-- **persona_save**: Mevcut müziğin tarzını kaydet
-- **remake**: Mevcut müziği yeniden üret/düzenle
+# TASKS:
+- **music**: Generate new music
+- **cover**: Generate album/song cover
+- **video**: Create music video (music + cover combination)
+- **persona_save**: Save current music's style
+- **remake**: Regenerate/edit current music
 
-# KURALLAR:
-1. Video için önce müzik VE kapak gerekli
-2. Remake için önce bir müzik üretilmiş olmalı
-3. Persona kaydetmek için seçilmiş bir müzik olmalı
-4. Görevleri mantıklı sıraya koy: music → cover → video
+# RULES:
+1. Video requires both music AND cover first
+2. Remake requires music to be generated first
+3. Saving persona requires a selected music
+4. Order tasks logically: music → cover → video
 
-# MEVCUT DURUM:
-- Müzik var mı: {has_music}
-- Seçilmiş müzik var mı: {has_selected_music}
-- Kapak var mı: {has_cover}
+# CURRENT STATUS:
+- Has music: {has_music}
+- Has selected music: {has_selected_music}
+- Has cover: {has_cover}
 
-Kullanıcının isteğine göre görevleri planla.
+Plan tasks according to user request.
 """
 
         human_message = """
-Kullanıcı isteği: {user_request}
+User request: {user_request}
 
-Son mesajlar:
+Recent messages:
 {recent_messages}
 
-Görevleri planla ve kullanıcıya bilgilendirici bir mesaj hazırla.
+Plan tasks and prepare an informative message for user.
 """
 
         template = ChatPromptTemplate.from_messages([
@@ -309,17 +306,17 @@ Görevleri planla ve kullanıcıya bilgilendirici bir mesaj hazırla.
         })
 
         print(f"\n{'='*50}")
-        print(f"📋 TASK PLANNER")
+        print(f"TASK PLANNER")
         print(f"   Tasks: {result.tasks}")
         print(f"   Music desc: {result.music_description}")
         print(f"   Cover desc: {result.cover_description}")
         print(f"{'='*50}\n")
 
-        # Kullanıcıya bilgi ver
+        # Inform user
         phone = state["phone_number"]
         self.message_helper.send_message(phone, result.response_to_user)
 
-        # İlk görevi belirle
+        # Determine first task
         next_node = "communication_agent"
         if result.tasks:
             first_task = result.tasks[0]
@@ -349,53 +346,53 @@ Görevleri planla ve kullanıcıya bilgilendirici bir mesaj hazırla.
     # ================================================================
 
     def music_generator(self, state: UnifiedState):
-        """Müzik üretir - Suno API kullanır"""
+        """Generates music - Uses Suno API"""
         
-        print("\n🎵 MUSIC GENERATOR başladı...")
+        print("\nMUSIC GENERATOR started...")
         
-        # Retry kontrolü - max 2 deneme
+        # Retry control - max 2 attempts
         retry_count = state.get("retry_count", 0)
         if retry_count >= 2:
-            print(f"   ❌ Maksimum deneme sayısına ulaşıldı ({retry_count})")
+            print(f"   Max retry count reached ({retry_count})")
             
-            # Kullanıcıya hata mesajı gönder
+            # Send error message to user
             phone = state["phone_number"]
             self.message_helper.send_message(
                 phone,
-                "😔 Müzik üretiminde sorun yaşıyorum. Lütfen biraz sonra tekrar dene veya farklı bir istek yap."
+                "Having trouble with music generation. Please try again later or make a different request."
             )
             
             return Command(
                 update={
                     "error_message": "Max retry exceeded",
                     "current_stage": "idle",
-                    "retry_count": 0,  # Sıfırla
+                    "retry_count": 0,
                     "task_queue": [],
-                    "messages": ["System: ❌ Müzik üretimi başarısız - max retry"]
+                    "messages": ["System: Music generation failed - max retry"]
                 },
                 goto="wait_user"
             )
         
-        system_message = """Sen profesyonel bir müzik yaratma uzmanısın.
+        system_message = """You are a professional music creation expert.
 
-# KURALLAR:
-- custom_mode: True (gelişmiş ayarlar için)
-- instrumental: True ise sözsüz, False ise sözlü
-- prompt: Şarkı sözleri (max 3000 karakter) - SÖZLÜ ise şarkı sözlerini yaz
-- style: Müzik stili (max 200 karakter)
-- title: Başlık (max 80 karakter)
-- Tüm yönergeler İNGİLİZCE olsun, sadece şarkı sözleri istenen dilde
+# RULES:
+- custom_mode: True (for advanced settings)
+- instrumental: True for instrumental, False for vocals
+- prompt: Lyrics (max 3000 chars) - Write lyrics if with vocals
+- style: Music style (max 200 chars)
+- title: Title (max 80 chars)
+- All instructions in ENGLISH, only lyrics in requested language
 
-# ÖNEMLİ:
-- Şarkı sözleri yazarken kafiyelere dikkat et
-- Minimalist ama etkileyici ol
-- negative_tags ile istenmeyen unsurları belirt
+# IMPORTANT:
+- Pay attention to rhymes when writing lyrics
+- Be minimalist but impactful
+- Specify unwanted elements with negative_tags
 """
 
         human_message = """
-Müzik talebi: {music_description}
+Music request: {music_description}
 
-Bu talebe uygun detaylı müzik parametreleri oluştur.
+Create detailed music parameters for this request.
 """
 
         template = ChatPromptTemplate.from_messages([
@@ -413,36 +410,36 @@ Bu talebe uygun detaylı müzik parametreleri oluştur.
         print(f"   Title: {music_params.title}")
         print(f"   Instrumental: {music_params.instrumental}")
 
-        # Suno API çağrısı
+        # Call Suno API
         api_result = self.suno_api.create_music(state, music_params)
 
         if api_result["is_generated"]:
             updated_state = api_result["current_state"]
             
-            # None değerleri filtrele
+            # Filter None values
             audio_paths = [p for p in updated_state.get("generated_audio_file_adress", []) if p]
             audio_ids = updated_state.get("generated_audio_ids", [])
             audio_urls = updated_state.get("generated_audio_urls", [])
             
-            print(f"   ✅ Müzik üretildi!")
+            print(f"   Music generated!")
             print(f"   Audio IDs: {audio_ids}")
             print(f"   Downloaded paths: {audio_paths}")
             
-            # Hiç indirilen müzik yoksa hata
+            # If no music downloaded, error
             if not audio_paths:
-                print("   ❌ Müzikler indirilemedi!")
+                print("   Music could not be downloaded!")
                 return Command(
                     update={
-                        "error_message": "Müzikler indirilemedi",
+                        "error_message": "Music could not be downloaded",
                         "last_error_stage": "music_generator",
                         "retry_count": retry_count + 1,
-                        "messages": [f"System: ❌ Müzikler indirilemedi (deneme {retry_count + 1})"]
+                        "messages": [f"System: Music download failed (attempt {retry_count + 1})"]
                     },
                     goto="communication_agent"
                 )
             
-            # Görev kuyruğunu güncelle
-            remaining_tasks = state.get("task_queue", [])[1:]  # İlk görevi çıkar
+            # Update task queue
+            remaining_tasks = state.get("task_queue", [])[1:]
             completed = state.get("completed_tasks", []) + ["music"]
             
             return Command(
@@ -456,97 +453,94 @@ Bu talebe uygun detaylı müzik parametreleri oluştur.
                     "music_title": music_params.title,
                     "task_queue": remaining_tasks,
                     "completed_tasks": completed,
-                    "retry_count": 0,  # Başarılı - sıfırla
-                    "messages": [f"System: 🎵 {len(audio_paths)} müzik üretildi, seçim bekleniyor"]
+                    "retry_count": 0,
+                    "messages": [f"System: {len(audio_paths)} music tracks generated, awaiting selection"]
                 },
                 goto="music_selection_prompt"
             )
         else:
-            print(f"   ❌ Müzik üretilemedi!")
+            print(f"   Music could not be generated!")
             return Command(
                 update={
-                    "error_message": api_result.get("error", "Müzik üretilemedi"),
+                    "error_message": api_result.get("error", "Music could not be generated"),
                     "last_error_stage": "music_generator",
-                    "retry_count": retry_count + 1,  # Retry sayısını artır
-                    "messages": [f"System: ❌ Müzik üretiminde hata (deneme {retry_count + 1})"]
+                    "retry_count": retry_count + 1,
+                    "messages": [f"System: Music generation error (attempt {retry_count + 1})"]
                 },
                 goto="communication_agent"
             )
 
     def music_selection_prompt(self, state: UnifiedState):
-        """Kullanıcıya 2 müziği link olarak gönderir ve seçim yapmasını ister"""
+        """Sends 2 music tracks as links to user and asks for selection"""
         
         phone = state["phone_number"]
         audio_paths = state.get("generated_audio_file_paths", [])
         
-        # None değerleri filtrele
+        # Filter None values
         audio_paths = [p for p in audio_paths if p]
         
-        print(f"\n🎵 MUSIC SELECTION - {len(audio_paths)} müzik linki gönderiliyor...")
+        print(f"\nMUSIC SELECTION - Sending {len(audio_paths)} music links...")
         
         if not audio_paths:
-            print("   ❌ İndirilmiş müzik yok!")
+            print("   No downloaded music!")
             self.message_helper.send_message(
                 phone,
-                "😔 Müzikler indirilemedi. Biraz bekleyip tekrar deneyelim mi?"
+                "Music could not be downloaded. Should we try again?"
             )
             return Command(
                 update={
-                    "messages": ["System: ❌ Müzik dosyaları bulunamadı"],
+                    "messages": ["System: Music files not found"],
                     "current_stage": "idle"
                 },
                 goto="wait_user"
             )
         
-        # Açıklama mesajı
-        message = "🎵 Sana 2 farklı versiyon ürettim!\n\n"
-        message += "Seçeneklerin:\n"
-        message += "• '1' veya '2' - Birini seç\n"
-        message += "• 'ikisi de' - Her ikisini de kullan\n"
-        message += "• 'hiçbiri' - Yeniden üret\n"
-        message += "• Geri bildirim yaz - Ne değişmesini istediğini söyle"
+        # Description message
+        message = "I've created 2 different versions for you!\n\n"
+        message += "Your options:\n"
+        message += "- '1' or '2' - Select one\n"
+        message += "- 'both' - Use both\n"
+        message += "- 'neither' - Regenerate\n"
+        message += "- Write feedback - Tell me what to change"
         
         self.message_helper.send_message(phone, message)
         time.sleep(1)
         
-        # Müzik linklerini AYRI AYRI mesaj olarak gönder (tıklanabilir olması için)
+        # Send music links as SEPARATE messages (for clickability)
         for idx, audio_path in enumerate(audio_paths[:2], 1):
             try:
-                # URL oluştur
                 if hasattr(self, 'get_file_url') and self.get_file_url:
                     file_url = self.get_file_url(audio_path)
                 else:
-                    # Fallback: dosya adından URL oluştur
                     filename = os.path.basename(audio_path)
                     file_url = f"http://localhost:5000/files/music/{filename}"
                 
-                # Her linki ayrı mesajda gönder
-                link_message = f"🎵 Versiyon {idx}:\n{file_url}"
+                link_message = f"Version {idx}:\n{file_url}"
                 self.message_helper.send_message(phone, link_message)
-                time.sleep(2)  # WhatsApp rate limit için bekle
+                time.sleep(2)
                 
-                print(f"   ✅ Müzik {idx} linki gönderildi: {file_url}")
+                print(f"   Music {idx} link sent: {file_url}")
             except Exception as e:
-                print(f"   ❌ Müzik {idx} linki gönderilemedi: {e}")
+                print(f"   Music {idx} link could not be sent: {e}")
         
         return Command(
             update={
-                "messages": [f"Assistant: {message}", "System: 🎵 Müzik linkleri gönderildi"],
+                "messages": [f"Assistant: {message}", "System: Music links sent"],
                 "current_stage": "awaiting_music_selection"
             },
             goto="music_selection_handler"
         )
 
     def music_selection_handler(self, state: UnifiedState):
-        """Kullanıcının müzik seçimini bekler ve işler"""
+        """Waits for and processes user's music selection"""
         
-        print("\n⏳ Müzik seçimi bekleniyor...")
+        print("\nWaiting for music selection...")
         
         user_response = interrupt("Waiting for music selection...")
         
-        print(f"✅ Kullanıcı yanıtı: {user_response}")
+        print(f"User response: {user_response}")
         
-        # Yanıtı analiz et
+        # Analyze response
         response_lower = user_response.lower().strip()
         
         audio_ids = state.get("generated_audio_ids", [])
@@ -557,36 +551,34 @@ Bu talebe uygun detaylı müzik parametreleri oluştur.
         next_node = "communication_agent"
         updates = {"messages": [f"User: {user_response}"]}
         
-        if response_lower in ["1", "bir", "birinci", "ilk"]:
+        if response_lower in ["1", "one", "first"]:
             selected_index = 0
-            updates["messages"].append("System: Birinci müzik seçildi")
+            updates["messages"].append("System: First music selected")
             
-        elif response_lower in ["2", "iki", "ikinci"]:
+        elif response_lower in ["2", "two", "second"]:
             selected_index = 1
-            updates["messages"].append("System: İkinci müzik seçildi")
+            updates["messages"].append("System: Second music selected")
             
-        elif "ikisi" in response_lower or "her iki" in response_lower:
-            # İkisini de seç (ilkini ana olarak kullan)
+        elif "both" in response_lower:
             selected_index = 0
-            updates["messages"].append("System: Her iki müzik de kabul edildi, birincisi kullanılacak")
+            updates["messages"].append("System: Both tracks accepted, using first one")
             
-        elif "hiçbiri" in response_lower or "yeniden" in response_lower or "tekrar" in response_lower:
-            # Remake iste
+        elif "neither" in response_lower or "regenerate" in response_lower or "again" in response_lower:
             updates["is_remake_requested"] = True
             updates["remake_instructions"] = user_response
             updates["current_stage"] = "generating_music"
-            updates["messages"].append("System: Müzik yeniden üretilecek")
+            updates["messages"].append("System: Music will be regenerated")
             next_node = "music_generator"
             
         else:
-            # Geri bildirim olarak değerlendir - remake yap
+            # Treat as feedback - do remake
             updates["is_remake_requested"] = True
             updates["remake_instructions"] = user_response
             updates["current_stage"] = "generating_music"
-            updates["messages"].append(f"System: Geri bildirime göre yeniden üretilecek: {user_response}")
+            updates["messages"].append(f"System: Will regenerate based on feedback: {user_response}")
             next_node = "music_generator"
         
-        # Seçim yapıldıysa state'i güncelle
+        # If selection made, update state
         if selected_index is not None:
             updates["selected_audio_index"] = selected_index
             updates["selected_audio_id"] = audio_ids[selected_index] if audio_ids else None
@@ -595,7 +587,7 @@ Bu talebe uygun detaylı müzik parametreleri oluştur.
             updates["is_music_selected"] = True
             updates["current_stage"] = "generating_cover" if "cover" in state.get("task_queue", []) else "delivering"
             
-            # Sonraki göreve geç
+            # Move to next task
             if "cover" in state.get("task_queue", []):
                 next_node = "cover_generator"
             else:
@@ -604,20 +596,19 @@ Bu talebe uygun detaylı müzik parametreleri oluştur.
         return Command(update=updates, goto=next_node)
 
     def music_remake(self, state: UnifiedState):
-        """Mevcut müziği yeniden üretir"""
+        """Regenerates existing music"""
         
-        print("\n🔄 MUSIC REMAKE başladı...")
+        print("\nMUSIC REMAKE started...")
         
-        # Remake için Suno API'yi kullan
-        system_message = """Mevcut müziği kullanıcının geri bildirimine göre yeniden düzenle.
-Orijinal tarzı koru ama istenen değişiklikleri uygula."""
+        system_message = """Edit existing music based on user feedback.
+Keep original style but apply requested changes."""
 
         human_message = """
-Orijinal stil: {original_style}
-Orijinal başlık: {original_title}
-Kullanıcı geri bildirimi: {feedback}
+Original style: {original_style}
+Original title: {original_title}
+User feedback: {feedback}
 
-Yeni müzik parametrelerini oluştur.
+Create new music parameters.
 """
 
         template = ChatPromptTemplate.from_messages([
@@ -633,7 +624,7 @@ Yeni müzik parametrelerini oluştur.
             "feedback": state.get("remake_instructions", "")
         })
 
-        # Suno API ile remake
+        # Remake with Suno API
         api_result = self.suno_api.remake_music(state, remake_params)
 
         if api_result["is_generated"]:
@@ -647,15 +638,15 @@ Yeni müzik parametrelerini oluştur.
                     "generated_audio_urls": updated_state.get("generated_audio_urls", []),
                     "generated_audio_file_paths": updated_state.get("generated_audio_file_adress", []),
                     "is_remake_requested": False,
-                    "messages": ["System: 🔄 Müzik yeniden üretildi"]
+                    "messages": ["System: Music regenerated"]
                 },
                 goto="music_selection_prompt"
             )
         else:
             return Command(
                 update={
-                    "error_message": "Remake başarısız",
-                    "messages": ["System: ❌ Müzik yeniden üretilemedi"]
+                    "error_message": "Remake failed",
+                    "messages": ["System: Music could not be regenerated"]
                 },
                 goto="communication_agent"
             )
@@ -665,26 +656,26 @@ Yeni müzik parametrelerini oluştur.
     # ================================================================
 
     def cover_generator(self, state: UnifiedState):
-        """Albüm kapağı üretir"""
+        """Generates album cover"""
         
-        print("\n🖼️ COVER GENERATOR başladı...")
+        print("\nCOVER GENERATOR started...")
         
-        system_message = """Sen müzik kapağı yaratma uzmanısın.
+        system_message = """You are a music cover art creation expert.
         
-# KURALLAR:
-- Minimalist ve etkileyici tasarımlar
-- Müziğin ruhunu yansıtan görseller
-- Fazla detay ve karmaşıklıktan kaçın
-- Prompt İNGİLİZCE olmalı
-- Kapağa yazı ekleme (istenmedikçe)
+# RULES:
+- Minimalist and impactful designs
+- Visuals that reflect the music's soul
+- Avoid excessive detail and complexity
+- Prompt should be in ENGLISH
+- Don't add text to cover (unless requested)
 """
 
         human_message = """
-Müzik stili: {music_style}
-Müzik başlığı: {music_title}
-Ek açıklama: {cover_description}
+Music style: {music_style}
+Music title: {music_title}
+Additional description: {cover_description}
 
-Bu müzik için etkileyici bir kapak tasarımı prompt'u oluştur.
+Create an impactful cover design prompt for this music.
 """
 
         template = ChatPromptTemplate.from_messages([
@@ -702,7 +693,7 @@ Bu müzik için etkileyici bir kapak tasarımı prompt'u oluştur.
 
         print(f"   Prompt: {result.prompt[:100]}...")
 
-        # Google API ile görsel üret
+        # Generate image with Google API
         import uuid
         cover_id = str(uuid.uuid4())
         image_path = f"artifacts/generated_images/{cover_id}.png"
@@ -710,13 +701,13 @@ Bu müzik için etkileyici bir kapak tasarımı prompt'u oluştur.
         try:
             generated_path = self.google_api.generate_image(result.prompt, image_path)
             
-            # Görev kuyruğunu güncelle
+            # Update task queue
             remaining_tasks = [t for t in state.get("task_queue", []) if t != "cover"]
             completed = state.get("completed_tasks", []) + ["cover"]
             
-            print(f"   ✅ Kapak üretildi: {generated_path}")
+            print(f"   Cover generated: {generated_path}")
             
-            # Video görevi var mı?
+            # Is there a video task?
             next_node = "video_generator" if "video" in remaining_tasks else "delivery_agent"
             
             return Command(
@@ -728,17 +719,17 @@ Bu müzik için etkileyici bir kapak tasarımı prompt'u oluştur.
                     "current_stage": "generating_video" if "video" in remaining_tasks else "delivering",
                     "task_queue": remaining_tasks,
                     "completed_tasks": completed,
-                    "messages": ["System: 🖼️ Kapak üretildi"]
+                    "messages": ["System: Cover generated"]
                 },
                 goto=next_node
             )
         except Exception as e:
-            print(f"   ❌ Kapak üretilemedi: {e}")
+            print(f"   Cover could not be generated: {e}")
             return Command(
                 update={
                     "error_message": str(e),
                     "last_error_stage": "cover_generator",
-                    "messages": [f"System: ❌ Kapak üretiminde hata: {e}"]
+                    "messages": [f"System: Cover generation error: {e}"]
                 },
                 goto="communication_agent"
             )
@@ -748,9 +739,9 @@ Bu müzik için etkileyici bir kapak tasarımı prompt'u oluştur.
     # ================================================================
 
     def video_generator(self, state: UnifiedState):
-        """Müzik + Kapak = Video"""
+        """Music + Cover = Video"""
         
-        print("\n🎬 VIDEO GENERATOR başladı...")
+        print("\nVIDEO GENERATOR started...")
         
         import subprocess
         import uuid
@@ -764,8 +755,8 @@ Bu müzik için etkileyici bir kapak tasarımı prompt'u oluştur.
         if not image_path or not audio_path:
             return Command(
                 update={
-                    "error_message": "Video için eksik dosya",
-                    "messages": ["System: ❌ Video için müzik veya kapak eksik"]
+                    "error_message": "Missing file for video",
+                    "messages": ["System: Music or cover missing for video"]
                 },
                 goto="communication_agent"
             )
@@ -775,7 +766,7 @@ Bu müzik için etkileyici bir kapak tasarımı prompt'u oluştur.
             output_name = f"{uuid.uuid4()}.mp4"
             output_path = f"artifacts/final_videos/{output_name}"
             
-            # FFmpeg komutu
+            # FFmpeg command
             command = [
                 'ffmpeg',
                 '-loop', '1',
@@ -791,15 +782,15 @@ Bu müzik için etkileyici bir kapak tasarımı prompt'u oluştur.
                 output_path
             ]
             
-            print("   🎬 FFmpeg çalıştırılıyor...")
+            print("   Running FFmpeg...")
             subprocess.run(command, check=True, capture_output=True, text=True)
             
             if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
-                # Görev kuyruğunu güncelle
+                # Update task queue
                 remaining_tasks = [t for t in state.get("task_queue", []) if t != "video"]
                 completed = state.get("completed_tasks", []) + ["video"]
                 
-                print(f"   ✅ Video oluşturuldu: {output_path}")
+                print(f"   Video created: {output_path}")
                 
                 return Command(
                     update={
@@ -808,20 +799,20 @@ Bu müzik için etkileyici bir kapak tasarımı prompt'u oluştur.
                         "current_stage": "delivering",
                         "task_queue": remaining_tasks,
                         "completed_tasks": completed,
-                        "messages": ["System: 🎬 Video oluşturuldu"]
+                        "messages": ["System: Video created"]
                     },
                     goto="delivery_agent"
                 )
             else:
-                raise Exception("Video dosyası oluşturulamadı")
+                raise Exception("Video file could not be created")
                 
         except Exception as e:
-            print(f"   ❌ Video hatası: {e}")
+            print(f"   Video error: {e}")
             return Command(
                 update={
                     "error_message": str(e),
                     "last_error_stage": "video_generator",
-                    "messages": [f"System: ❌ Video oluşturulamadı: {e}"]
+                    "messages": [f"System: Video could not be created: {e}"]
                 },
                 goto="communication_agent"
             )
@@ -831,14 +822,14 @@ Bu müzik için etkileyici bir kapak tasarımı prompt'u oluştur.
     # ================================================================
 
     def delivery_agent(self, state: UnifiedState):
-        """Üretilen içerikleri kullanıcıya link olarak teslim eder"""
+        """Delivers generated content to user as links"""
         
-        print("\n📦 DELIVERY AGENT başladı...")
+        print("\nDELIVERY AGENT started...")
         
         phone = state["phone_number"]
         delivered = []
         
-        # Müzik teslimi (link olarak)
+        # Music delivery (as link)
         if state.get("is_music_selected") and state.get("selected_audio_file_path"):
             audio_path = state["selected_audio_file_path"]
             try:
@@ -848,14 +839,14 @@ Bu müzik için etkileyici bir kapak tasarımı prompt'u oluştur.
                     filename = os.path.basename(audio_path)
                     file_url = f"http://localhost:5000/files/music/{filename}"
                 
-                self.message_helper.send_message(phone, f"🎵 Seçtiğin müzik:\n{file_url}")
+                self.message_helper.send_message(phone, f"Your selected music:\n{file_url}")
                 delivered.append("music")
-                print(f"   ✅ Müzik linki teslim edildi: {file_url}")
+                print(f"   Music link delivered: {file_url}")
                 time.sleep(2)
             except Exception as e:
-                print(f"   ❌ Müzik teslim hatası: {e}")
+                print(f"   Music delivery error: {e}")
         
-        # Kapak teslimi (link olarak)
+        # Cover delivery (as link)
         if state.get("is_cover_generated") and state.get("cover_image_path"):
             cover_path = state["cover_image_path"]
             try:
@@ -865,14 +856,14 @@ Bu müzik için etkileyici bir kapak tasarımı prompt'u oluştur.
                     filename = os.path.basename(cover_path)
                     file_url = f"http://localhost:5000/files/image/{filename}"
                 
-                self.message_helper.send_message(phone, f"🖼️ Albüm kapağı:\n{file_url}")
+                self.message_helper.send_message(phone, f"Album cover:\n{file_url}")
                 delivered.append("cover")
-                print(f"   ✅ Kapak linki teslim edildi: {file_url}")
+                print(f"   Cover link delivered: {file_url}")
                 time.sleep(2)
             except Exception as e:
-                print(f"   ❌ Kapak teslim hatası: {e}")
+                print(f"   Cover delivery error: {e}")
         
-        # Video teslimi (link olarak)
+        # Video delivery (as link)
         if state.get("is_video_generated") and state.get("video_file_path"):
             video_path = state["video_file_path"]
             try:
@@ -882,18 +873,18 @@ Bu müzik için etkileyici bir kapak tasarımı prompt'u oluştur.
                     filename = os.path.basename(video_path)
                     file_url = f"http://localhost:5000/files/video/{filename}"
                 
-                self.message_helper.send_message(phone, f"🎬 Müzik videon:\n{file_url}")
+                self.message_helper.send_message(phone, f"Your music video:\n{file_url}")
                 delivered.append("video")
-                print(f"   ✅ Video linki teslim edildi: {file_url}")
+                print(f"   Video link delivered: {file_url}")
                 time.sleep(2)
             except Exception as e:
-                print(f"   ❌ Video teslim hatası: {e}")
+                print(f"   Video delivery error: {e}")
         
-        # Kapanış mesajı
+        # Closing message
         if delivered:
-            closing_message = "✨ Tüm içerikler hazır! Başka bir şey ister misin?"
+            closing_message = "All content is ready! Would you like anything else?"
         else:
-            closing_message = "Hmm, gönderecek içerik bulamadım. Ne yapmamı istersin?"
+            closing_message = "Hmm, couldn't find content to send. What would you like me to do?"
         
         self.message_helper.send_message(phone, closing_message)
         
@@ -901,7 +892,7 @@ Bu müzik için etkileyici bir kapak tasarımı prompt'u oluştur.
             update={
                 "current_stage": "completed",
                 "messages": [
-                    f"System: Teslim edildi: {delivered}",
+                    f"System: Delivered: {delivered}",
                     f"Assistant: {closing_message}"
                 ]
             },
@@ -909,8 +900,8 @@ Bu müzik için etkileyici bir kapak tasarımı prompt'u oluştur.
         )
 
     def finish(self, state: UnifiedState):
-        """Workflow'u sonlandırır"""
-        print("\n✅ WORKFLOW TAMAMLANDI")
+        """Terminates workflow"""
+        print("\nWORKFLOW COMPLETED")
         return state
 
     # ================================================================
@@ -918,72 +909,71 @@ Bu müzik için etkileyici bir kapak tasarımı prompt'u oluştur.
     # ================================================================
 
     def send_music(self, state: UnifiedState):
-        """Seçili müziği gönderir"""
+        """Sends selected music"""
         phone = state["phone_number"]
         audio_path = state.get("selected_audio_file_path")
         
         if not audio_path:
             return Command(
-                update={"messages": ["System: Gönderilecek müzik yok"]},
+                update={"messages": ["System: No music to send"]},
                 goto="communication_agent"
             )
         
         try:
             self.message_helper.send_audio(phone, audio_path)
             return Command(
-                update={"messages": ["System: 🎵 Müzik gönderildi"]},
+                update={"messages": ["System: Music sent"]},
                 goto="communication_agent"
             )
         except Exception as e:
             return Command(
-                update={"messages": [f"System: Müzik gönderilemedi: {e}"]},
+                update={"messages": [f"System: Music could not be sent: {e}"]},
                 goto="communication_agent"
             )
 
     def send_cover(self, state: UnifiedState):
-        """Kapak görselini gönderir"""
+        """Sends cover image"""
         phone = state["phone_number"]
         cover_path = state.get("cover_image_path")
         
         if not cover_path:
             return Command(
-                update={"messages": ["System: Gönderilecek kapak yok"]},
+                update={"messages": ["System: No cover to send"]},
                 goto="communication_agent"
             )
         
         try:
-            self.message_helper.send_message(phone, "🖼️ Kapak görseli:")
-            # send_image metodu eklenecek
+            self.message_helper.send_message(phone, "Cover image:")
             return Command(
-                update={"messages": ["System: 🖼️ Kapak gönderildi"]},
+                update={"messages": ["System: Cover sent"]},
                 goto="communication_agent"
             )
         except Exception as e:
             return Command(
-                update={"messages": [f"System: Kapak gönderilemedi: {e}"]},
+                update={"messages": [f"System: Cover could not be sent: {e}"]},
                 goto="communication_agent"
             )
 
     def send_video(self, state: UnifiedState):
-        """Videoyu gönderir"""
+        """Sends video"""
         phone = state["phone_number"]
         video_path = state.get("video_file_path")
         
         if not video_path:
             return Command(
-                update={"messages": ["System: Gönderilecek video yok"]},
+                update={"messages": ["System: No video to send"]},
                 goto="communication_agent"
             )
         
         try:
             self.message_helper.send_video(phone, video_path)
             return Command(
-                update={"messages": ["System: 🎬 Video gönderildi"]},
+                update={"messages": ["System: Video sent"]},
                 goto="communication_agent"
             )
         except Exception as e:
             return Command(
-                update={"messages": [f"System: Video gönderilemedi: {e}"]},
+                update={"messages": [f"System: Video could not be sent: {e}"]},
                 goto="communication_agent"
             )
 
@@ -992,7 +982,7 @@ Bu müzik için etkileyici bir kapak tasarımı prompt'u oluştur.
     # ================================================================
 
     def build_graph(self):
-        """LangGraph workflow'unu oluşturur"""
+        """Creates LangGraph workflow"""
         
         graph = StateGraph(UnifiedState)
         

@@ -1,7 +1,7 @@
 """
 Image Generator Agent
 =====================
-Google Gemini API kullanarak müzik kapakları üretir.
+Generates music covers using Google Gemini API.
 """
 
 import os
@@ -23,33 +23,33 @@ class GoogleApi:
         if api_key:
             self.client = genai.Client(api_key=api_key)
         else:
-            print("⚠️ GEMINI_API_KEY bulunamadı!")
+            print("Warning: GEMINI_API_KEY not found!")
             self.client = None
 
     def generate_image(self, prompt: str, image_path: str = None) -> str:
         """
-        Verilen prompt'a göre görsel üretir.
+        Generates image based on given prompt.
         
         Args:
-            prompt: Görsel üretim prompt'u (İngilizce önerilir)
-            image_path: Kaydedilecek dosya yolu (optional)
+            prompt: Image generation prompt (English recommended)
+            image_path: File path to save (optional)
             
         Returns:
-            Kaydedilen dosyanın yolu
+            Path of saved file
         """
         
         if not self.client:
-            raise Exception("Gemini client başlatılmamış")
+            raise Exception("Gemini client not initialized")
         
         # Default path
         if not image_path:
             image_id = str(uuid.uuid4())
             image_path = f"artifacts/generated_images/{image_id}.png"
         
-        # Dizini oluştur
+        # Create directory
         Path(image_path).parent.mkdir(parents=True, exist_ok=True)
         
-        print(f"🎨 Görsel üretiliyor...")
+        print(f"Generating image...")
         print(f"   Prompt: {prompt[:100]}...")
         
         try:
@@ -61,28 +61,28 @@ class GoogleApi:
                 )
             )
             
-            # Response'dan görseli çıkar
+            # Extract image from response
             for part in response.candidates[0].content.parts:
                 if part.text is not None:
-                    print(f"   Model yanıtı: {part.text[:100]}...")
+                    print(f"   Model response: {part.text[:100]}...")
                 elif part.inline_data is not None:
                     image = Image.open(BytesIO(part.inline_data.data))
                     image.save(image_path)
-                    print(f"   ✅ Görsel kaydedildi: {image_path}")
+                    print(f"   Image saved: {image_path}")
                     return image_path
             
-            # Görsel bulunamadıysa
-            raise Exception("API yanıtında görsel bulunamadı")
+            # If no image found
+            raise Exception("No image found in API response")
             
         except Exception as e:
-            print(f"   ❌ Görsel üretim hatası: {e}")
+            print(f"   Image generation error: {e}")
             raise
 
 
 class ImageGeneratorAgent:
     """
     Standalone Image Generator Agent.
-    System Supervisor tarafından kullanılır.
+    Used by System Supervisor.
     """
     
     def __init__(self):
@@ -92,18 +92,18 @@ class ImageGeneratorAgent:
     
     def generate_cover(self, description: str, music_style: str = None, music_title: str = None) -> dict:
         """
-        Müzik kapağı üretir.
+        Generates music cover.
         
         Args:
-            description: Kapak açıklaması
-            music_style: Müzik stili (opsiyonel)
-            music_title: Müzik başlığı (opsiyonel)
+            description: Cover description
+            music_style: Music style (optional)
+            music_title: Music title (optional)
             
         Returns:
             {"success": bool, "image_path": str, "image_id": str, "error": str}
         """
         
-        # Prompt oluştur
+        # Create prompt
         prompt = f"Create a minimalist album cover art. "
         
         if music_style:
@@ -140,14 +140,3 @@ class ImageGeneratorAgent:
 # Factory function
 def create_image_generator():
     return ImageGeneratorAgent()
-
-"""
-# Test
-if __name__ == "__main__":
-    generator = ImageGeneratorAgent()
-    result = generator.generate_cover(
-        description="Melancholic rap album with urban night vibes",
-        music_style="Hip-Hop, Rap",
-        music_title="Night Thoughts"
-    )
-    print(result)"""

@@ -20,52 +20,52 @@ load_dotenv()
 class UserCommunicationAgent:
 
     def __init__(self):
-        self.llm = ChatOpenAI(model="gpt-5")
+        self.llm = ChatOpenAI(model="gpt-4o")
         self.message_helper = WhatsApp()
         self.persona_db = PersonaDB()
         self.memory = MemorySaver()
         self.workflow = None
 
     def communication_agent(self, state: UserComminicationState):
-        """Ana communication agent - mesajları analiz edip aksiyona karar verir"""
+        """Main communication agent - analyzes messages and decides on action"""
         
-        system_message = """Sen bir müzik üretim şirketinin kullanıcı ile iletişim sorumlususun. Amacın içinde bulunduğun durumu analiz edip aksiyon almak.
+        system_message = """You are the user communication manager of a music production company. Your purpose is to analyze the current situation and take action.
 
-# Aksiyonlar 
-- **send_message**: Kullanıcıya bilgilendirme mesajı gönder (sonra wait_user)
-- **send_music**: Üretilen müziği gönder (hazır olmalı)
-- **send_cover**: Kapak görselini gönder (hazır olmalı)
-- **send_video**: Video'yu gönder (hazır olmalı)
-- **choice_persona**: Persona listesini göster ve seçim yaptır
-- **supervisor**: Müzik/kapak/video üretimi için supervisor'a yönlendir
-- **wait_user**: SADECE kullanıcıdan yanıt bekle (mesaj gönderme!)
-- **finish**: İşlemi sonlandır
+# Actions 
+- **send_message**: Send an informational message to the user (then wait_user)
+- **send_music**: Send the generated music (must be ready)
+- **send_cover**: Send the cover image (must be ready)
+- **send_video**: Send the video (must be ready)
+- **choice_persona**: Show persona list and have them select
+- **supervisor**: Redirect to supervisor for music/cover/video generation
+- **wait_user**: ONLY wait for user response (don't send message!)
+- **finish**: End the process
 
-# ÖNEMLI: 
-- Kullanıcıya mesaj gönderdikten sonra MUTLAKA wait_user'a git
-- wait_user'dan sonra tekrar communication_agent'a dönülür
-- İşlem tamamen bitmedikçe finish kullanma
+# IMPORTANT: 
+- After sending message to user, MUST go to wait_user
+- After wait_user, returns to communication_agent
+- Don't use finish unless process is completely done
 
-# Mevcut Durum:
+# Current Status:
 - is_music_generated: {is_music_generated}
 - is_cover_generated: {is_cover_generated}
 - is_video_generated: {is_video_generated}
 
-# Karar Mantığı:
-1. Kullanıcı merhaba dedi + hiçbir şey üretilmedi → send_message (sonra wait_user)
-2. Kullanıcı müzik istedi + üretilmemiş → supervisor
-3. Müzik üretildi + gönderilmemiş → send_music
-4. Kullanıcıdan bilgi gerekli → send_message (sonra wait_user)
-5. İşlem TAMAMEN tamam → finish
+# Decision Logic:
+1. User said hello + nothing generated → send_message (then wait_user)
+2. User requested music + not generated → supervisor
+3. Music generated + not sent → send_music
+4. Need info from user → send_message (then wait_user)
+5. Process COMPLETELY done → finish
 
-Doğal ve samimi iletişim kur.
+Communicate naturally and friendly.
 """
         
         human_message = """
-# Konuşma Geçmişi:
+# Conversation History:
 {messages}
 
-Durum analizi yap ve aksiyon belirle.
+Analyze situation and determine action.
 """
 
         communication_template = ChatPromptTemplate.from_messages([
@@ -100,14 +100,14 @@ Durum analizi yap ve aksiyon belirle.
 
 
     def send_message(self, state: UserComminicationState):
-        """Kullanıcıya mesaj gönderir"""
+        """Sends message to user"""
         
         message_text = state["description"]
-        phone = state["phone_number"]  # 🔥 Direkt state'ten al
+        phone = state["phone_number"]
         
         try:
             self.message_helper.send_message(phone, message_text)
-            print(f"✅ Mesaj Gönderildi: {phone}")
+            print(f"Message Sent: {phone}")
             
             return Command(
                 update={
@@ -116,71 +116,71 @@ Durum analizi yap ve aksiyon belirle.
                 goto="communication_agent"
             )
         except Exception as e:
-            print(f"❌ Mesaj Gönderme Hatası: {str(e)}")
+            print(f"Message Send Error: {str(e)}")
             return Command(
                 update={
-                    "messages": [f"System: Mesaj gönderilemedi - {str(e)}"]
+                    "messages": [f"System: Message could not be sent - {str(e)}"]
                 },
                 goto="communication_agent"
             )
 
 
     def send_music(self, state: UserComminicationState):
-        """Üretilen müziği kullanıcıya gönderir"""
+        """Sends generated music to user"""
         
         audio_path = state.get("selected_audio_file_adress")
         description = state["description"]
-        phone = state["phone_number"]  # 🔥 Direkt state'ten al
+        phone = state["phone_number"]
         
         if not audio_path:
             return Command(
                 update={
-                    "messages": ["System: ❌ Müzik dosyası bulunamadı"]
+                    "messages": ["System: Music file not found"]
                 },
                 goto="communication_agent"
             )
         
         try:
-            # Önce açıklama
+            # Description first
             if description:
                 self.message_helper.send_message(phone, description)
                 time.sleep(1)
             
-            # Müzik gönder
+            # Send music
             self.message_helper.send_audio(phone, audio_path)
-            print(f"✅ Müzik Gönderildi: {phone}")
+            print(f"Music Sent: {phone}")
             
             return Command(
                 update={
                     "messages": [
                         f"Assistant: {description}",
-                        "System: 🎵 Müzik gönderildi"
+                        "System: Music sent"
                     ],
-                    "is_music_generated": False  # Tekrar gönderme
+                    "is_music_generated": False  # Prevent resending
                 },
                 goto="communication_agent"
             )
         except Exception as e:
-            print(f"❌ Müzik Gönderme Hatası: {str(e)}")
+            print(f"Music Send Error: {str(e)}")
             return Command(
                 update={
-                    "messages": [f"System: ❌ Müzik gönderilemedi - {str(e)}"]
+                    "messages": [f"System: Music could not be sent - {str(e)}"]
                 },
                 goto="communication_agent"
             )
 
 
     def send_cover(self, state: UserComminicationState):
-        """Şarkı kapağını kullanıcıya gönderir"""
+        """Sends song cover to user"""
         
         cover_path = state.get("cover_image_path")
         description = state["description"]
-        phone = state["phone_number"]  # 🔥 Direkt state'ten al
+        phone = state["phone_number"]
         
         if not cover_path:
             return Command(
                 update={
-                    "messages": ["System: ❌ Kapak görseli bulunamadı"]
+                    "messages": ["System: Cover image not found"]
                 },
                 goto="communication_agent"
             )
@@ -190,41 +190,41 @@ Durum analizi yap ve aksiyon belirle.
                 self.message_helper.send_message(phone, description)
                 time.sleep(1)
             
-            # Görseli gönder - WhatsApp helper'a send_image metodu eklenecek
+            # Send image - send_image method will be added to WhatsApp helper
             # self.message_helper.send_image(phone, cover_path)
-            print(f"✅ Kapak Gönderildi: {phone}")
+            print(f"Cover Sent: {phone}")
             
             return Command(
                 update={
                     "messages": [
                         f"Assistant: {description}",
-                        "System: 🖼️ Kapak gönderildi"
+                        "System: Cover sent"
                     ],
                     "is_cover_generated": False
                 },
                 goto="communication_agent"
             )
         except Exception as e:
-            print(f"❌ Kapak Gönderme Hatası: {str(e)}")
+            print(f"Cover Send Error: {str(e)}")
             return Command(
                 update={
-                    "messages": [f"System: ❌ Kapak gönderilemedi - {str(e)}"]
+                    "messages": [f"System: Cover could not be sent - {str(e)}"]
                 },
                 goto="communication_agent"
             )
 
 
     def send_video(self, state: UserComminicationState):
-        """Video'yu kullanıcıya gönderir"""
+        """Sends video to user"""
         
         video_path = state.get("video_file_path")
         description = state["description"]
-        phone = state["phone_number"]  # 🔥 Direkt state'ten al
+        phone = state["phone_number"]
         
         if not video_path:
             return Command(
                 update={
-                    "messages": ["System: ❌ Video dosyası bulunamadı"]
+                    "messages": ["System: Video file not found"]
                 },
                 goto="communication_agent"
             )
@@ -235,38 +235,38 @@ Durum analizi yap ve aksiyon belirle.
                 time.sleep(1)
             
             self.message_helper.send_video(phone, video_path)
-            print(f"✅ Video Gönderildi: {phone}")
+            print(f"Video Sent: {phone}")
             
             return Command(
                 update={
                     "messages": [
                         f"Assistant: {description}",
-                        "System: 🎬 Video gönderildi"
+                        "System: Video sent"
                     ],
                     "is_video_remake_generated": False
                 },
                 goto="communication_agent"
             )
         except Exception as e:
-            print(f"❌ Video Gönderme Hatası: {str(e)}")
+            print(f"Video Send Error: {str(e)}")
             return Command(
                 update={
-                    "messages": [f"System: ❌ Video gönderilemedi - {str(e)}"]
+                    "messages": [f"System: Video could not be sent - {str(e)}"]
                 },
                 goto="communication_agent"
             )
 
 
     def choice_persona(self, state: UserComminicationState):
-        """Persona seçimi - PersonaDB'den personaları listeler"""
+        """Persona selection - Lists personas from PersonaDB"""
         
-        phone = state["phone_number"]  # 🔥 Direkt state'ten al
+        phone = state["phone_number"]
         
-        # PersonaDB'den tüm personaları çek
+        # Get all personas from PersonaDB
         personas = self.persona_db.list_personas()
         
         if not personas:
-            message = "❌ Henüz kaydedilmiş persona yok. Önce bir müzik üretip beğendiğin tarzı kaydetmelisin!"
+            message = "No saved personas yet. First, generate music and save a style you like!"
             
             self.message_helper.send_message(phone, message)
             
@@ -277,17 +277,17 @@ Durum analizi yap ve aksiyon belirle.
                 goto="communication_agent"
             )
         
-        # Persona listesini formatla
-        persona_list_message = "🎭 Kayıtlı Personalar:\n\n"
+        # Format persona list
+        persona_list_message = "Saved Personas:\n\n"
         for idx, persona in enumerate(personas, 1):
             persona_list_message += f"{idx}. {persona['name']}\n"
-            persona_list_message += f"   📝 {persona['description']}\n\n"
+            persona_list_message += f"   {persona['description']}\n\n"
         
-        persona_list_message += "\nHangi personayı kullanmak istersin? (Numara gönder)"
+        persona_list_message += "\nWhich persona would you like to use? (Send number)"
         
         try:
             self.message_helper.send_message(phone, persona_list_message)
-            print("✅ Persona Listesi Gönderildi")
+            print("Persona List Sent")
             
             return Command(
                 update={
@@ -300,7 +300,7 @@ Durum analizi yap ve aksiyon belirle.
         except Exception as e:
             return Command(
                 update={
-                    "messages": [f"System: ❌ Persona listesi gönderilemedi - {str(e)}"]
+                    "messages": [f"System: Persona list could not be sent - {str(e)}"]
                 },
                 goto="communication_agent"
             )
@@ -309,14 +309,14 @@ Durum analizi yap ve aksiyon belirle.
     
 
     def wait_user(self, state: UserComminicationState):
-        """Human-in-the-loop: Kullanıcı mesajı bekler"""
+        """Human-in-the-loop: Waits for user message"""
         
-        print("--- 🛑 Kullanıcı Yanıtı Bekleniyor (Human-in-the-loop) ---")
+        print("--- Waiting for User Response (Human-in-the-loop) ---")
         
-        # 🔥 interrupt() kullan - bu workflow'u durdurur
+        # Use interrupt() - this stops the workflow
         user_message = interrupt("Waiting for user response...")
         
-        print(f"--- ✅ Kullanıcı Yanıtı Alındı: {user_message} ---")
+        print(f"--- User Response Received: {user_message} ---")
         
         return Command(
             update={
@@ -327,13 +327,13 @@ Durum analizi yap ve aksiyon belirle.
 
 
     def supervisor_router(self, state: UserComminicationState):
-        """Supervisor agent'e yönlendirme yapar"""
+        """Routes to supervisor agent"""
         
         supervisor_request = state["description"]
         
-        print(f"--- 📤 Supervisor'a Yönlendiriliyor: {supervisor_request} ---")
+        print(f"--- Routing to Supervisor: {supervisor_request} ---")
         
-        # Burada MusicSupervizorAgentSystem çağrılacak
+        # MusicSupervizorAgentSystem will be called here
         # music_result = music_system.workflow.invoke({
         #     "request": supervisor_request,
         #     "phone_number": state["phone_number"]
@@ -341,24 +341,24 @@ Durum analizi yap ve aksiyon belirle.
         
         return Command(
             update={
-                "messages": [f"System: 📤 Supervisor'a iletildi - {supervisor_request}"]
+                "messages": [f"System: Sent to Supervisor - {supervisor_request}"]
             },
             goto="communication_agent"
         )
 
 
     def finish(self, state: UserComminicationState):
-        """İşlemi sonlandırır"""
-        print("--- Workflow Tamamlandı ---")
+        """Ends the process"""
+        print("--- Workflow Completed ---")
         return state
 
 
     def set_graph(self):
-        """LangGraph yapısını kurar"""
+        """Sets up the LangGraph structure"""
         
         graph = StateGraph(UserComminicationState)
         
-        # Node'ları ekle
+        # Add nodes
         graph.add_node("communication_agent", self.communication_agent)
         graph.add_node("send_message", self.send_message)
         graph.add_node("send_music", self.send_music)
@@ -369,13 +369,13 @@ Durum analizi yap ve aksiyon belirle.
         graph.add_node("supervisor", self.supervisor_router)
         graph.add_node("finish", self.finish)
         
-        # Başlangıç
+        # Entry point
         graph.set_entry_point("communication_agent")
         
-        # Finish'i END'e bağla
+        # Connect finish to END
         graph.add_edge("finish", END)
         
-        # MemorySaver ile compile
+        # Compile with MemorySaver
         self.workflow = graph.compile(
             checkpointer=self.memory,
             interrupt_before=["wait_user"]

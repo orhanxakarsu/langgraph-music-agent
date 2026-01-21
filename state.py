@@ -4,39 +4,39 @@ from operator import add
 
 class UnifiedState(TypedDict):
     """
-    Tüm sistemin kullandığı birleşik state.
+    Unified state used by the entire system.
     UserCommunication, SystemSupervisor, MusicAgent, ImageAgent, VideoMerger
-    hepsi bu state'i kullanır.
+    all use this state.
     """
     
     # ============== USER & COMMUNICATION ==============
     phone_number: str
-    messages: Annotated[List[str], add]  # String mesajlar, add ile birleştirilir
-    user_request: Optional[str]  # Kullanıcının orijinal isteği
+    messages: Annotated[List[str], add]  # String messages, combined with add
+    user_request: Optional[str]  # User's original request
     
-    # Communication agent kararları
+    # Communication agent decisions
     communication_action: Optional[str]
     communication_description: Optional[str]
     
     # ============== TASK MANAGEMENT ==============
     current_stage: Literal[
-        "idle",                    # Başlangıç
-        "understanding",           # Kullanıcı isteği anlaşılıyor
-        "planning",                # Görevler planlanıyor
-        "generating_music",        # Müzik üretiliyor
-        "awaiting_music_selection", # Müzik seçimi bekleniyor
-        "generating_cover",        # Kapak üretiliyor
-        "generating_video",        # Video üretiliyor
-        "awaiting_approval",       # Onay bekleniyor
-        "delivering",              # Teslim ediliyor
-        "completed"                # Tamamlandı
+        "idle",                    # Initial
+        "understanding",           # Understanding user request
+        "planning",                # Planning tasks
+        "generating_music",        # Generating music
+        "awaiting_music_selection", # Waiting for music selection
+        "generating_cover",        # Generating cover
+        "generating_video",        # Generating video
+        "awaiting_approval",       # Waiting for approval
+        "delivering",              # Delivering
+        "completed"                # Completed
     ]
     
-    task_queue: List[str]          # Yapılacak görevler: ["music", "cover", "video"]
-    completed_tasks: List[str]     # Tamamlanan görevler
+    task_queue: List[str]          # Tasks to do: ["music", "cover", "video"]
+    completed_tasks: List[str]     # Completed tasks
     
     # ============== MUSIC GENERATION ==============
-    # Üretim parametreleri
+    # Generation parameters
     music_prompt: Optional[str]
     music_style: Optional[str]
     music_title: Optional[str]
@@ -46,13 +46,13 @@ class UnifiedState(TypedDict):
     music_style_weight: Optional[float]
     music_generation_model: str
     
-    # Üretilen müzikler (API 2 adet üretir)
+    # Generated music (API generates 2)
     generated_audio_ids: List[str]
     generated_audio_urls: List[str]
     generated_audio_file_paths: List[str]
     
-    # Seçilen müzik
-    selected_audio_index: Optional[int]  # 0 veya 1
+    # Selected music
+    selected_audio_index: Optional[int]  # 0 or 1
     selected_audio_id: Optional[str]
     selected_audio_url: Optional[str]
     selected_audio_file_path: Optional[str]
@@ -64,7 +64,7 @@ class UnifiedState(TypedDict):
     available_personas: List[Dict]
     selected_persona_id: Optional[str]
     
-    # Persona kaydetme
+    # Persona saving
     persona_saver_task_id: Optional[str]
     persona_saver_audio_id: Optional[str]
     persona_saver_name: Optional[str]
@@ -90,11 +90,11 @@ class UnifiedState(TypedDict):
     # ============== ERROR HANDLING ==============
     error_message: Optional[str]
     last_error_stage: Optional[str]
-    retry_count: int  # Hata durumunda kaç kez denendi
+    retry_count: int  # How many times retried on error
 
 
 def create_initial_state(phone_number: str, initial_message: str) -> UnifiedState:
-    """Yeni bir conversation için başlangıç state'i oluşturur"""
+    """Creates initial state for a new conversation"""
     return {
         # User & Communication
         "phone_number": phone_number,
@@ -163,7 +163,7 @@ def create_initial_state(phone_number: str, initial_message: str) -> UnifiedStat
 
 
 # ============== BACKWARD COMPATIBILITY ==============
-# Eski state'ler için alias'lar (mevcut kodların çalışması için)
+# Aliases for old states (for existing code to work)
 
 MusicGenerationState = UnifiedState
 ImageGenerationStateModel = UnifiedState

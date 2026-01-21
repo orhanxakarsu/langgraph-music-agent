@@ -3,17 +3,17 @@ from typing import Optional, Literal, List
 
 
 class PersonaChangerBaseModel(BaseModel):
-    name: Optional[str] = Field(..., description="Personanın kişiliğini yansıtan ismi (Örnek: Electronic Pop Singer)")
-    description: Optional[str] = Field(..., description="Personanın kişilik açıklaması")
+    name: Optional[str] = Field(..., description="Name reflecting the persona's personality (Example: Electronic Pop Singer)")
+    description: Optional[str] = Field(..., description="Personality description of the persona")
 
 
 class MusicBaseModel(BaseModel):
-    prompt: str = Field(..., description="Şarkı sözleri veya açıklama")
-    style: str = Field(..., description="Müzik stili")
-    title: str = Field(..., description="Şarkı başlığı")
-    instrumental: bool = Field(..., description="Enstrümantal mı?")
-    negative_tags: str = Field(default="", description="İstenmeyen özellikler")
-    vocal_gender: Literal["f", "m"] = Field(..., description="Vokal cinsiyeti")
+    prompt: str = Field(..., description="Song lyrics or description")
+    style: str = Field(..., description="Music style")
+    title: str = Field(..., description="Song title")
+    instrumental: bool = Field(..., description="Is it instrumental?")
+    negative_tags: str = Field(default="", description="Unwanted characteristics")
+    vocal_gender: Literal["f", "m"] = Field(..., description="Vocal gender")
     style_weight: float = Field(default=0.65, ge=0, le=1)
     weirdness_constraint: float = Field(default=0.65, ge=0, le=1)
     audio_weight: float = Field(default=0.65, ge=0, le=1)
@@ -21,74 +21,72 @@ class MusicBaseModel(BaseModel):
 
 class MusicGenerationAgentBaseModel(BaseModel):
     next: Literal["generate_music", "persona_saver", "remake_music", "return"] = Field(
-        ..., description="Sonraki adımın ne olduğu bilgisi."
+        ..., description="Information about what the next step is."
     )
-    reason: str = Field(..., description="Bu kararı neden aldığının gerekçesi")
-    request_detail: str = Field(..., description="Gelen isteğin sıradaki yapıya verilecek detaylı açıklaması")
+    reason: str = Field(..., description="Reason for making this decision")
+    request_detail: str = Field(..., description="Detailed explanation of the incoming request for the next structure")
 
 
 class CommunicationDecisionBaseModel(BaseModel):
-    """Communication agent'in karar modeli"""
+    """Communication agent's decision model"""
     action: Literal[
         "send_message",
         "send_music",
         "send_cover",
         "send_video",
         "choice_persona",
-        "task_planner",  # Yeni: Supervisor'a yönlendir
+        "task_planner",
         "wait_user",
         "finish"
-    ] = Field(description="Alınacak aksiyon")
+    ] = Field(description="Action to take")
     
     description: str = Field(
-        description="Aksiyonun detaylı açıklaması veya kullanıcıya gönderilecek mesaj"
+        description="Detailed explanation of the action or message to send to user"
     )
 
 
-# ============== YENİ MODELLER ==============
-
 class TaskPlannerDecisionBaseModel(BaseModel):
-    """Task Planner'ın karar modeli - hangi görevlerin yapılacağını belirler"""
+    """Task Planner's decision model - determines which tasks to perform"""
     
     tasks: List[Literal["music", "cover", "video", "persona_save", "remake"]] = Field(
-        description="Yapılacak görevler listesi, sıralı"
+        description="List of tasks to perform, ordered"
     )
     
     music_description: Optional[str] = Field(
         default=None,
-        description="Müzik üretimi için detaylı açıklama (eğer music görevi varsa)"
+        description="Detailed description for music generation (if music task exists)"
     )
     
     cover_description: Optional[str] = Field(
         default=None, 
-        description="Kapak üretimi için açıklama (eğer cover görevi varsa)"
+        description="Description for cover generation (if cover task exists)"
     )
     
     remake_instructions: Optional[str] = Field(
         default=None,
-        description="Remake için talimatlar (eğer remake görevi varsa)"
+        description="Instructions for remake (if remake task exists)"
     )
     
     response_to_user: str = Field(
-        description="Kullanıcıya verilecek yanıt (işlem başlıyor mesajı)"
+        description="Response to give to user (processing started message)"
     )
 
 
 class MusicSelectionBaseModel(BaseModel):
-    """Kullanıcının müzik seçimi"""
+    """User's music selection"""
     
     selection: Literal["1", "2", "both", "neither", "remake"] = Field(
-        description="Kullanıcının seçimi: 1, 2, ikisi de, hiçbiri, veya yeniden üret"
+        description="User's selection: 1, 2, both, neither, or regenerate"
     )
     
     remake_feedback: Optional[str] = Field(
         default=None,
-        description="Eğer remake seçildiyse, kullanıcının geri bildirimi"
+        description="If remake selected, user's feedback"
     )
 
 
 class DeliveryDecisionBaseModel(BaseModel):
-    """Delivery agent'ın karar modeli"""
+    """Delivery agent's decision model"""
     
     action: Literal[
         "deliver_music",
@@ -97,13 +95,13 @@ class DeliveryDecisionBaseModel(BaseModel):
         "deliver_all",
         "ask_for_more",
         "finish"
-    ] = Field(description="Teslim aksiyonu")
+    ] = Field(description="Delivery action")
     
-    message: str = Field(description="Kullanıcıya gönderilecek mesaj")
+    message: str = Field(description="Message to send to user")
 
 
 class ImagePromptBaseModel(BaseModel):
-    """Image generator için prompt modeli"""
+    """Prompt model for image generator"""
     
-    prompt: str = Field(description="Görsel üretim prompt'u (İngilizce)")
-    style_notes: Optional[str] = Field(default=None, description="Stil notları")
+    prompt: str = Field(description="Visual generation prompt (English)")
+    style_notes: Optional[str] = Field(default=None, description="Style notes")

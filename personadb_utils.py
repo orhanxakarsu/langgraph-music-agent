@@ -1,7 +1,7 @@
 """
 Persona Database Utilities
 ==========================
-SQLite tabanlı persona yönetimi.
+SQLite-based persona management.
 """
 
 import sqlite3
@@ -11,18 +11,18 @@ from datetime import datetime
 
 
 class PersonaDB:
-    """Persona yönetimi için SQLite wrapper"""
+    """SQLite wrapper for persona management"""
     
     DB_PATH = "artifacts/databases/personas.db"
     
     @classmethod
     def _ensure_db_dir(cls):
-        """Veritabanı dizinini oluştur"""
+        """Create database directory"""
         os.makedirs(os.path.dirname(cls.DB_PATH), exist_ok=True)
     
     @classmethod
     def _get_connection(cls):
-        """DB connection al"""
+        """Get DB connection"""
         cls._ensure_db_dir()
         conn = sqlite3.connect(cls.DB_PATH)
         conn.row_factory = sqlite3.Row  # Dict-like access
@@ -30,7 +30,7 @@ class PersonaDB:
     
     @classmethod
     def init_db(cls):
-        """Veritabanını başlat"""
+        """Initialize database"""
         conn = cls._get_connection()
         cursor = conn.cursor()
         
@@ -46,11 +46,11 @@ class PersonaDB:
         
         conn.commit()
         conn.close()
-        print("✅ Persona DB initialized")
+        print("Persona DB initialized")
     
     @classmethod
     def save_persona(cls, persona_data: Dict):
-        """Yeni persona kaydet"""
+        """Save new persona"""
         conn = cls._get_connection()
         cursor = conn.cursor()
         
@@ -68,11 +68,11 @@ class PersonaDB:
         
         conn.commit()
         conn.close()
-        print(f"✅ Persona saved: {persona_data.get('name')}")
+        print(f"Persona saved: {persona_data.get('name')}")
     
     @classmethod
     def list_personas(cls) -> List[Dict]:
-        """Tüm personaları listele"""
+        """List all personas"""
         conn = cls._get_connection()
         cursor = conn.cursor()
         
@@ -86,7 +86,7 @@ class PersonaDB:
     
     @classmethod
     def get_persona(cls, persona_id: str) -> Optional[Dict]:
-        """Belirli bir persona'yı getir"""
+        """Get a specific persona"""
         conn = cls._get_connection()
         cursor = conn.cursor()
         
@@ -99,7 +99,7 @@ class PersonaDB:
     
     @classmethod
     def get_persona_by_index(cls, index: int) -> Optional[Dict]:
-        """Index ile persona getir (1-based)"""
+        """Get persona by index (1-based)"""
         personas = cls.list_personas()
         if 0 < index <= len(personas):
             return personas[index - 1]
@@ -107,7 +107,7 @@ class PersonaDB:
     
     @classmethod
     def delete_persona(cls, persona_id: str):
-        """Persona sil"""
+        """Delete persona"""
         conn = cls._get_connection()
         cursor = conn.cursor()
         
@@ -115,11 +115,11 @@ class PersonaDB:
         
         conn.commit()
         conn.close()
-        print(f"🗑️ Persona deleted: {persona_id}")
+        print(f"Persona deleted: {persona_id}")
     
     @classmethod
     def count_personas(cls) -> int:
-        """Toplam persona sayısı"""
+        """Total persona count"""
         conn = cls._get_connection()
         cursor = conn.cursor()
         
@@ -130,5 +130,5 @@ class PersonaDB:
         return count
 
 
-# Startup'ta DB'yi başlat
+# Initialize DB on startup
 PersonaDB.init_db()
