@@ -1,17 +1,29 @@
+"""
+Persona Database Utilities
+==========================
+SQLite tabanlı persona yönetimi.
+"""
+
 import sqlite3
-import json
+import os
 from typing import List, Dict, Optional
 from datetime import datetime
 
 
 class PersonaDB:
-    """Persona yönetimi için basit SQLite wrapper"""
+    """Persona yönetimi için SQLite wrapper"""
     
     DB_PATH = "artifacts/databases/personas.db"
     
     @classmethod
+    def _ensure_db_dir(cls):
+        """Veritabanı dizinini oluştur"""
+        os.makedirs(os.path.dirname(cls.DB_PATH), exist_ok=True)
+    
+    @classmethod
     def _get_connection(cls):
         """DB connection al"""
+        cls._ensure_db_dir()
         conn = sqlite3.connect(cls.DB_PATH)
         conn.row_factory = sqlite3.Row  # Dict-like access
         return conn
@@ -86,6 +98,14 @@ class PersonaDB:
         return dict(row) if row else None
     
     @classmethod
+    def get_persona_by_index(cls, index: int) -> Optional[Dict]:
+        """Index ile persona getir (1-based)"""
+        personas = cls.list_personas()
+        if 0 < index <= len(personas):
+            return personas[index - 1]
+        return None
+    
+    @classmethod
     def delete_persona(cls, persona_id: str):
         """Persona sil"""
         conn = cls._get_connection()
@@ -95,7 +115,19 @@ class PersonaDB:
         
         conn.commit()
         conn.close()
-        print(f"✅ Persona deleted: {persona_id}")
+        print(f"🗑️ Persona deleted: {persona_id}")
+    
+    @classmethod
+    def count_personas(cls) -> int:
+        """Toplam persona sayısı"""
+        conn = cls._get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT COUNT(*) FROM personas")
+        count = cursor.fetchone()[0]
+        
+        conn.close()
+        return count
 
 
 # Startup'ta DB'yi başlat
